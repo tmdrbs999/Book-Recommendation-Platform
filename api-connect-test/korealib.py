@@ -1,100 +1,68 @@
-import logging
 import requests
 import pandas as pd
-import re
-import psycopg2
-from datetime import datetime
 from keybert import KeyBERT
-import azure.functions as func
+import re
+from datetime import datetime
 
-# 🔑 PostgreSQL 연결 정보 (환경변수로 설정 권장)
-DB_HOST = "YOUR_POSTGRES_HOST"
-DB_NAME = "YOUR_DB_NAME"
-DB_USER = "YOUR_DB_USER"
-DB_PASSWORD = "YOUR_DB_PASSWORD"
-DB_PORT = 5432
-
-# 🔑 국립중앙도서관 API
-API_URL = "https://www.nl.go.kr/NL/search/openApi/search.do"
+# 🔑 국립중앙도서관 Open API 키와 URL
 API_KEY = "4ce21af2f20c58c5eb1924ed81130a54f959ebcc06a16d8eadb23e18c912bb5e"
+BASE_URL = "https://www.nl.go.kr/NL/search/openApi/search.do"
 
-def main(mytimer: func.TimerRequest) -> None:
-    logging.info("=== Fetching National Library Data... ===")
-
-    # 1️⃣ 데이터 수집
+# 🔍 1) API에서 데이터 가져오기
+def fetch_books(keyword="인공지능"):
     params = {
         "key": API_KEY,
-        "kwd": "인공지능",
-        "pageNum": 1,
-        "pageSize": 50,
+        "kwd": keyword,
+        "detailSearch": "true",
+        "pageSize": 20
     }
-    response = requests.get(API_URL, params=params)
+    response = requests.get(BASE_URL, params=params)
+    response.encoding = "utf-8"
+    
     if response.status_code != 200:
-        logging.error(f"API 요청 실패: {response.status_code}")
-        return
+        raise Exception(f"API 요청 실패: {response.status_code}")
     
-    books = response.json().get("docs", [])
-    if not books:
-        logging.warning("API에서 수집된 데이터가 없습니다.")
-        return
+    # XML → DataFrame 변환
+    from xml.etree import ElementTree
+    root = ElementTree.fromstring(response.text)
+    records = []
+    for item in root.iter("item"):
+        record = {child.tag: child.text for child in item}
+        records.append(record)
     
-    df = pd.DataFrame(books)
+    return pd.DataFrame(records)
 
-    # 2️⃣ 데이터 정제
-    df = df[["TITLE", "AUTHOR", "PUBLISHER", "SUBJECT", "REG_DATE"]].copy()
-    df.columns = ["title", "author", "publisher", "subject", "reg_date"]
-    df["title"] = df["title"].apply(lambda x: re.sub(r"[^가-힣a-zA-Z0-9 ]", "", str(x)))
-    df["author"] = df["author"].fillna("unknown")
-    df.drop_duplicates(subset=["title", "author"], inplace=True)
+# 🧹 2) 데이터 정제
+def clean_books(df):
+    df = df.drop_duplicates(subset=["title"], keep="first")
+    df["title"] = df["title"].astype(str).str.replace(r"[^가-힣a-zA-Z0-9 ]", "", regex=True)
+    df["author"] = df["author"].fillna("미상")
+    df["publisher"] = df["publisher"].fillna("미상")
+    return df
 
-    # 3️⃣ 키워드 추출 (KeyBERT)
+# 🧠 3) 키워드 추출
+def extract_keywords(df):
     kw_model = KeyBERT()
-    df["keywords"] = df["title"].apply(
-        lambda x: [kw for kw, _ in kw_model.extract_keywords(x, top_n=3)]
-    )
+    df["keywords"] = df["title"].apply(lambda x: [kw for kw, _ in kw_model.extract_keywords(x, top_n=3)])
+    return df
 
-    # 4️⃣ PostgreSQL 저장
-    try:
-        conn = psycopg2.connect(
-            host=DB_HOST,
-            dbname=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            port=DB_PORT,
-        )
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS public.library_books (
-                id SERIAL PRIMARY KEY,
-                title TEXT,
-                author TEXT,
-                publisher TEXT,
-                subject TEXT,
-                reg_date TEXT,
-                keywords TEXT,
-                fetched_at TIMESTAMP
-            );
-        """)
-        for _, row in df.iterrows():
-            cur.execute(
-                """
-                INSERT INTO public.library_books
-                (title, author, publisher, subject, reg_date, keywords, fetched_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    row["title"],
-                    row["author"],
-                    row["publisher"],
-                    row["subject"],
-                    row["reg_date"],
-                    ", ".join(row["keywords"]),
-                    datetime.utcnow(),
-                ),
-            )
-        conn.commit()
-        cur.close()
-        conn.close()
-        logging.info(f"{len(df)}개 도서 정보가 PostgreSQL에 저장되었습니다.")
-    except Exception as e:
-        logging.error(f"PostgreSQL 저장 중 오류: {e}")
+# 💾 4) 결과 저장
+def save_to_csv(df, keyword):
+    filename = f"books_{keyword}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    df.to_csv(filename, index=False, encoding="utf-8-sig")
+    print(f"✅ 결과 저장 완료: {filename}")
+
+# 🚀 실행
+if __name__ == "__main__":
+    keyword = input("검색어를 입력하세요 (예: 인공지능, 데이터, 경제): ")
+    print("📡 국립중앙도서관 API에서 도서 데이터 수집 중...")
+    df = fetch_books(keyword)
+    print(f"📚 {len(df)}개의 도서 데이터 수집 완료")
+
+    print("🧹 데이터 정제 중...")
+    df = clean_books(df)
+
+    print("🧠 키워드 추출 중...")
+    df = extract_keywords(df)
+
+    save_to_csv(df, keyword)

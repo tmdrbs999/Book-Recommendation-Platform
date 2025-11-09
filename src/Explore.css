@@ -1,0 +1,90 @@
+.explore-root {
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #263238;
+  background: linear-gradient(180deg, #f6fbff 0%, #f2f8fb 50%, #ffffff 100%);
+  min-height: 100vh;
+}
+
+.explore-header {
+  padding: 18px 28px;
+  background: linear-gradient(90deg,#2196f3 0%, #4caf50 100%);
+  color: #fff;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:12px;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(33,150,243,0.08);
+}
+.explore-header h1 { margin: 0; font-size: 20px; font-weight:600; letter-spacing: -0.2px; }
+
+.explore-main { display: grid; grid-template-columns: 260px 1fr 320px; gap: 20px; padding: 28px; max-width: 1200px; margin: 0 auto; }
+.card { background: #ffffff; border-radius: 12px; box-shadow: 0 6px 18px rgba(16,24,40,0.06); padding: 18px; border: 1px solid rgba(15,76,117,0.04); }
+
+.left-col .card { margin-bottom: 16px; }
+.tags { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.tag {
+  padding:8px 14px;
+  border-radius:20px;
+  border:1px solid rgba(11,121,208,0.12);
+  background:linear-gradient(180deg,#f0f8ff,#e8f6ff);
+  cursor:pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, color 160ms ease;
+  color: #064a6d;
+  font-weight:600;
+  font-size:13px;
+}
+
+.chart-card { position:relative; height:260px; display:flex; align-items:center; justify-content:center; }
+.chart-placeholder { width:200px; height:200px; display:flex; align-items:center; justify-content:center; }
+.tag.active {
+  background: linear-gradient(180deg,#0b79d0,#075a9a);
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 10px 30px rgba(11,121,208,0.14);
+  transform: translateY(-3px) scale(1.02);
+}
+.tag:focus { outline: none; box-shadow: 0 0 0 4px rgba(11,121,208,0.08); }
+
+.center-col .stack-list { display:flex; flex-direction:column; gap:12px; margin-top:10px; }
+.stack-item { display:flex; align-items:center; justify-content:space-between; padding:12px; border-radius:10px; background:linear-gradient(180deg,#ffffff,#f4fbff); border:1px solid rgba(15,76,117,0.04); }
+.stack-title { font-weight:700; color:#0b3f63; }
+.btn { background:#0b79d0; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; box-shadow: 0 6px 18px rgba(11,121,208,0.12); }
+.btn.small { padding:6px 10px; font-size:13px; }
+.more-btn { margin-top:12px; background:#eef6ff; color:#0b79d0; border:1px solid rgba(11,121,208,0.06); }
+
+.right-col .book-list { display:flex; flex-direction:column; gap:14px; margin-top:12px; }
+.book-item { display:flex; gap:12px; align-items:center; }
+.book-cover { width:72px; height:96px; background:linear-gradient(180deg,#e9f6ff,#dbeffb); border-radius:6px; box-shadow: 0 6px 20px rgba(11,121,208,0.06); border:1px solid rgba(11,121,208,0.04); }
+.book-title { font-weight:700; color:#0b3f63; }
+.book-meta { font-size:12px; color:#6b7785; }
+
+/* subtle hover for tags */
+.tag:hover { transform: translateY(-4px) scale(1.02); }
+
+/* card hover lift */
+.card { transition: transform 220ms cubic-bezier(.2,.9,.2,1), box-shadow 220ms; }
+.card:hover { transform: translateY(-6px); box-shadow: 0 18px 50px rgba(16,24,40,0.08); }
+
+/* pie chart slice entrance animation */
+.piechart { display:block; }
+.piechart .slice { opacity: 0; transform-origin: 50% 50%; transform: scale(0.9) rotate(-6deg); animation: sliceIn 420ms cubic-bezier(.2,.9,.2,1) forwards; animation-delay: calc(var(--i) * 50ms); }
+.piechart circle { transform-origin: 50% 50%; opacity: 0; transform: scale(0.6); animation: centerIn 420ms cubic-bezier(.2,.9,.2,1) 240ms forwards; }
+
+@keyframes sliceIn { to { opacity: 1; transform: scale(1) rotate(0deg); } }
+@keyframes centerIn { to { opacity: 1; transform: scale(1); } }
+
+.back-btn { background: #ffffff; color: #0b79d0; border: 1px solid #d9e9fb; box-shadow: none; transition: background 160ms ease, transform 140ms ease, box-shadow 160ms ease; }
+.back-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(11,121,208,0.08); }
+
+/* header back button placement */
+.explore-header { position: relative; }
+.explore-header .back-btn { position: absolute; right: 28px; top: 50%; transform: translateY(-50%); }
+
+/* responsive */
+@media (max-width: 1100px) {
+  .explore-main { grid-template-columns: 1fr; padding: 18px; }
+  .explore-header .back-btn { position: static; transform:none; margin-left:auto; margin-top:8px; }
+}
+/* popup/modal styles removed — large popup feature deleted as requested */
+

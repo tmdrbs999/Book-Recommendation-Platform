@@ -1,5 +1,5 @@
-# data 폴더는 유지 (코드에 data에 csv에 저장되게 설정되어 있음)
-data/
+# data 폴더는 포함 (코드에 data에 csv에 저장되게 설정되어 있음)
+!data/
 
 # 하지만 gitkeep은 포함 (빈 폴더는 인식 못할 수도 있어서)
 !data/.gitkeep

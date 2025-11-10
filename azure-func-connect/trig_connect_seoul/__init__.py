@@ -82,7 +82,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         # --- (3) Blob 업로드 ---
         blob_conn_str = os.getenv("AzureWebJobsStorage")
-        container_name = os.getenv("BLOB_CONTAINER_NAME", "seoul-job-data")
+        container_name = os.getenv("BLOB_CONTAINER_NAME", "seoul-job-ct")
 
         blob_service_client = BlobServiceClient.from_connection_string(blob_conn_str)
         container_client = blob_service_client.get_container_client(container_name)

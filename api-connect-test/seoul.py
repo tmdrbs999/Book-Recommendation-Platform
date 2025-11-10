@@ -11,7 +11,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-DEFAULT_KEY = '56414b5666746d6437357572434246'
+DEFAULT_KEY = '56414b5666746d6437357572434246'  
 
 
 def build_session(total_retries: int = 3, backoff: float = 1.0) -> requests.Session:
@@ -104,26 +104,19 @@ def parse_gui_ln(gui: Any) -> Dict[str, Any]:
 
 
 def clean_dataframe(df: pd.DataFrame, convert_monthly: bool = False, hours_per_month: int = 209) -> pd.DataFrame:
+    # Only keep the original fields required for our filtered output and parsing
     keep = [
-        'JO_REQST_NO', 'JO_REGIST_NO', 'CMPNY_NM', 'JO_SJ', 'BASS_ADRES_CN', 'JO_REG_DT',
-        'HOPE_WAGE', 'GUI_LN', 'WORK_TM_NM', 'WEEK_WORK_HR', 'CAREER_CND_NM', 'MNGR_NM', 'MNGR_PHON_NO'
+        'CMPNY_NM', 'JO_SJ', 'HOPE_WAGE', 'GUI_LN',
+        'RCRIT_JSSFC_CMMN_CODE_SE', 'JOBCODE_NM', 'CAREER_CND_CMMN_CODE_SE', 'ACDMCR_CMMN_CODE_SE'
     ]
     existing = [c for c in keep if c in df.columns]
     out = df[existing].copy()
+    # Minimal renaming: keep only the fields we parse/use
     rename_map = {
-        'JO_REQST_NO': 'request_no',
-        'JO_REGIST_NO': 'regist_no',
         'CMPNY_NM': 'company',
         'JO_SJ': 'job_title',
-        'BASS_ADRES_CN': 'address',
-        'JO_REG_DT': 'post_date',
         'HOPE_WAGE': 'hope_wage',
-        'GUI_LN': 'gui_ln',
-        'WORK_TM_NM': 'work_time',
-        'WEEK_WORK_HR': 'week_hours',
-        'CAREER_CND_NM': 'career_requirement',
-        'MNGR_NM': 'contact_name',
-        'MNGR_PHON_NO': 'contact_phone'
+        'GUI_LN': 'gui_ln'
     }
     out = out.rename(columns=rename_map)
 
@@ -140,8 +133,8 @@ def clean_dataframe(df: pd.DataFrame, convert_monthly: bool = False, hours_per_m
     gdf = pd.DataFrame(gui_info.tolist(), index=out.index)
     out = pd.concat([out, gdf], axis=1)
 
-    if 'contact_phone' in out.columns:
-        out['contact_phone'] = out['contact_phone'].astype(str).str.replace(r'\s+', '', regex=True)
+    # we don't need contact or address information for the filtered output;
+    # keep the DataFrame focused on company/title/wage/region/codes
 
     # Optional: convert 시급 to 월급 by multiplying hours_per_month
     if convert_monthly:
@@ -199,12 +192,12 @@ def fetch_seoul_by_key(session: requests.Session, key: str, industry: str, chunk
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--endpoint', '-e')
+    p.add_argument('--output', default='data/seoul_jobs.csv')
     p.add_argument('--record-path', '-p', default='')
-    p.add_argument('--key', '-k', help='Seoul OpenAPI key')
+    p.add_argument('--key', '-k', help='Seoul OpenAPI key', default=DEFAULT_KEY)
     p.add_argument('--industry', help='industry code for GetJobInfo, e.g. J01302')
     p.add_argument('--chunk-size', type=int, default=100)
     p.add_argument('--max-records', type=int, default=0)
-    p.add_argument('--output', '-o', default='data/seoul_jobs.csv')
     p.add_argument('--clean-output', default='data/seoul_jobs_clean.csv')
     p.add_argument('--convert-monthly', action='store_true', help='Convert hourly wage to monthly using --hours-per-month')
     p.add_argument('--hours-per-month', type=int, default=209)
@@ -244,6 +237,22 @@ def main():
     clean_out.parent.mkdir(parents=True, exist_ok=True)
     clean_df.to_csv(clean_out, index=False, encoding='utf-8-sig')
     print('Saved cleaned CSV to', clean_out.resolve(), 'rows=', len(clean_df))
+
+    # --- create filtered CSV with only the requested columns ---
+    filtered_cols = [
+        'company', 'job_title', 'wage_type', 'wage_value_krw', 'region', 'career',
+        'RCRIT_JSSFC_CMMN_CODE_SE', 'JOBCODE_NM', 'CAREER_CND_CMMN_CODE_SE', 'ACDMCR_CMMN_CODE_SE'
+    ]
+    # Ensure missing columns exist so selection doesn't fail
+    for c in filtered_cols:
+        if c not in clean_df.columns:
+            clean_df[c] = None
+
+    filtered_df = clean_df[filtered_cols].copy()
+    filtered_out = Path('data/seoul_jobs_filtered.csv')
+    filtered_out.parent.mkdir(parents=True, exist_ok=True)
+    filtered_df.to_csv(filtered_out, index=False, encoding='utf-8-sig')
+    print('Saved filtered CSV to', filtered_out.resolve(), 'rows=', len(filtered_df))
 
 
 if __name__ == '__main__':

@@ -1,65 +1,95 @@
 import requests
-import xmltodict
-import json
+import pandas as pd
+from datetime import datetime
+from xml.etree import ElementTree as ET
 
-# --- 🔑 사용자 정보 및 검색 조건 설정 ---
-# **[필수] 발급받은 인증키로 변경하세요!**
-AUTH_KEY = "343bf365bd0dfe4d16173a27999ae9e4fe417f89ba41a9d5eed55217295bcf11" 
-PAGE_NO = 1       # 페이지 번호
-PAGE_SIZE = 2    # 페이지 크기 (기본값 10)
-# LIB_CODE = 111001 # 특정 도서관 코드를 지정할 경우 (선택)
+# ==============================
+# 1️⃣ 데이터 가져오기
+# ==============================
+def get_library_data(
+        auth_key, isbn, region, page_no=1, 
+        page_size=10, format_type="xml"):
+    """
+    특정 ISBN 도서를 소장하고 있는 도서관 정보 조회
+    """
+    base_url = "http://data4library.kr/api/libSrchByBook"
+    params = {
+        "authKey": auth_key,
+        "isbn": isbn,
+        "region": region,
+        "pageNo": page_no,
+        "pageSize": page_size,
+        "format": format_type
+    }
 
-# --- 🌐 API 요청 URL 및 파라미터 설정 ---
-BASE_URL = "http://data4library.kr/api/libSrch"
+    response = requests.get(base_url, params=params)
+    if response.status_code != 200:
+        raise Exception(f"API 요청 실패: {response.status_code}")
+    return response.text
 
-# 파라미터 딕셔너리
-params = {
-    "authKey": AUTH_KEY,
-    "pageNo": PAGE_NO,
-    "pageSize": PAGE_SIZE,
-    # format 파라미터가 없으면 기본적으로 XML 응답 (format="xml"과 동일)
-    # "format": "xml" 
-}
 
-# --- 🚀 API 호출 함수 ---
-def fetch_library_info():
-    try:
-        # API 호출
-        response = requests.get(BASE_URL, params=params)
-        response.raise_for_status() # HTTP 오류(4xx, 5xx) 발생 시 예외 처리
+# ==============================
+# 2️⃣ 데이터 정제 (XML → DataFrame)
+# ==============================
+def parse_xml_to_df(xml_data):
+    root = ET.fromstring(xml_data)
+    libs = []
+    for lib in root.findall(".//lib"):
+        libs.append({
+            "libName": lib.findtext("libName"),
+            "tel": lib.findtext("tel"),
+            "fax": lib.findtext("fax"),
+            "homepage": lib.findtext("homepage"),
+            "address": lib.findtext("address"),
+            "closed": lib.findtext("closed"),
+            "operatingTime": lib.findtext("operatingTime"),
+            "bookCount": lib.findtext("bookCount")
+        })
+    return pd.DataFrame(libs)
 
-        xml_data = response.text
-        
-        # 🚨 디버깅: XML 파싱 시도 전에 응답 내용을 출력하여 확인
-        print("\n--- 🚧 API 응답 내용 확인 (디버깅) ---")
-        print(xml_data[:500]) # 응답 내용의 처음 500자만 출력
-        print("-------------------------------------------\n")
 
-        # XML을 Python 딕셔너리로 변환합니다.
-        data = xmltodict.parse(xml_data)
-        
-        # --- 📚 데이터 추출 (이후 코드는 동일) ---
-        response_data = data.get('response', {})
-        libs_data = response_data.get('libs', {})
-        
-        num_found = response_data.get('numFound', 'N/A')
-        
-        print("--- 🏢 도서관 정보 검색 결과 ---")
-        print(f"✅ 전체 검색 결과 건수: {num_found}건")
-        
-        # ... (이하 코드는 이전과 동일) ...
-        # ...
-        
-    except requests.exceptions.RequestException as e:
-        print(f"API 호출 중 네트워크 오류 발생: {e}")
-    except xmltodict.expat.ExpatError:
-        print("❌ API 응답을 XML로 파싱하는 데 실패했습니다. (응답 내용이 올바른 XML 형식이 아닐 수 있습니다.)")
-        # 실패 시 원본 응답 내용을 다시 출력하여 확인
-        if 'xml_data' in locals():
-             print("\n🚨 파싱 실패 응답 원본 (다시 확인):")
-             print(xml_data[:500]) # 오류를 일으킨 응답을 다시 출력
-    except Exception as e:
-        print(f"처리 중 예상치 못한 오류 발생: {e}")
+# ==============================
+# 3️⃣ 컬럼명 / 결측값 정리
+# ==============================
+def clean_dataframe(df):
+    df.columns = [
+        "도서관명", "전화번호", "팩스", "홈페이지",
+        "주소", "휴관일", "운영시간", "보유도서수"
+    ]
+    df = df.fillna("정보없음")
+    return df
 
-# 함수 실행
-fetch_library_info()
+
+# ==============================
+# 4️⃣ 결과 저장
+# ==============================
+def save_to_csv(df, filename=None):
+    if filename is None:
+        filename = f"library_list_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    df.to_csv(filename, index=False, encoding="utf-8-sig")
+    print(f"✅ 결과가 '{filename}' 파일로 저장되었습니다.")
+
+
+# ==============================
+# 5️⃣ 실행 (main)
+# ==============================
+if __name__ == "__main__":
+    AUTH_KEY = "343bf365bd0dfe4d16173a27999ae9e4fe417f89ba41a9d5eed55217295bcf11"
+    ISBN = "9791167741028"   
+    REGION = 11 #서울              
+    PAGE_NO = 1
+    PAGE_SIZE = 10
+
+    # 1) 데이터 가져오기
+    xml_response = get_library_data(AUTH_KEY, ISBN, REGION, PAGE_NO, PAGE_SIZE)
+
+    # 2) DataFrame 변환
+    df_raw = parse_xml_to_df(xml_response)
+
+    # 3) 컬럼명 및 결측값 정리
+    df_clean = clean_dataframe(df_raw)
+
+    # 4) CSV 저장
+    save_to_csv(df_clean)
+
+    print(df_clean.head())

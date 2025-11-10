@@ -1,1 +1,2 @@
-## 정윤팀장님
+# Book-Recommendation-Platform
+Book Recommendation Platform Development Project (Self-Initiated Project)

@@ -4,6 +4,8 @@ import './App.css';
 // 실제 파일은 `src/` 루트에 존재하므로 경로를 수정합니다.
 import Explore from './Explore';
 import Jobs from './Jobs';
+import StackBooks from './StackBooks';
+import BookDetail from './BookDetail';
 
 function Home() {
 	const navigate = useNavigate(); // ✅ 페이지 이동용 hook
@@ -81,7 +83,9 @@ function App() {
 			<Routes>
 				<Route path="/" element={<Home />} />
 	<Route path="/explore" element={<Explore />} />
-	<Route path="/jobs" element={<Jobs />} />
+			<Route path="/jobs" element={<Jobs />} />
+			<Route path="/stack/:stackName" element={<StackBooks />} />
+			<Route path="/book/:id" element={<BookDetail />} />
 			</Routes>
 		</Router>
 	);
